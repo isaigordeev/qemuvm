@@ -1,0 +1,8 @@
+  #cloud-config
+  users:
+    - name: dev
+      sudo: ALL=(ALL) NOPASSWD:ALL
+      shell: /bin/bash
+      ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB1ggLmMJYDnSEMfnvO6cDfQwnn67ZRio1HG3kEHRuB7 qemu-debian
+  ssh_pwauth: false
