@@ -22,6 +22,16 @@ VARSTORE="varstore.img"
 KEY="vm_key"
 SEED_DIR="seed"
 SEED_ISO="seed.iso"
+PASSWORD_FILE="vm_password"
+
+# Optional console password for $USERNAME, so the serial console is usable and
+# not just SSH. Taken from $VM_PASSWORD, else the first line of ./vm_password
+# (both untracked). Empty means no password: the account stays locked and the
+# SSH key is the only way in. SSH stays key-only either way (ssh_pwauth: false).
+PASSWORD="${VM_PASSWORD:-}"
+if [ -z "$PASSWORD" ] && [ -f "$PASSWORD_FILE" ]; then
+  PASSWORD="$(head -n 1 "$PASSWORD_FILE")"
+fi
 
 for bin in qemu-system-aarch64 qemu-img hdiutil ssh-keygen curl brew; do
   command -v "$bin" >/dev/null || { echo "missing dependency: $bin" >&2; exit 1; }
@@ -71,6 +81,15 @@ EOF
   echo "  - name: $USERNAME"
   echo "    sudo: ALL=(ALL) NOPASSWD:ALL"
   echo "    shell: /bin/bash"
+  if [ -n "$PASSWORD" ]; then
+    # lock_passwd defaults to true, which is what makes console login
+    # impossible; unlock it and hand cloud-init the plaintext. Escaped for a
+    # YAML double-quoted scalar.
+    esc=${PASSWORD//\\/\\\\}
+    esc=${esc//\"/\\\"}
+    echo "    lock_passwd: false"
+    echo "    plain_text_passwd: \"$esc\""
+  fi
   echo "    ssh_authorized_keys:"
   echo "      - $(cat "$KEY.pub")"
   echo "ssh_pwauth: false"
@@ -94,6 +113,11 @@ hdiutil makehybrid -iso -joliet -default-volume-name cidata -o "$SEED_ISO" "$SEE
 
 # 6. Boot
 echo "==> Booting VM (Ctrl-A X to quit; ssh -i $KEY -p $SSH_PORT $USERNAME@localhost)"
+if [ -n "$PASSWORD" ]; then
+  echo "==> Console login enabled for '$USERNAME'"
+else
+  echo "==> Console login disabled (SSH key only); see \$VM_PASSWORD in $0"
+fi
 exec qemu-system-aarch64 \
   -machine virt,accel=hvf \
   -cpu host \

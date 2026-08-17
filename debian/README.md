@@ -110,7 +110,25 @@ cloud-init runs. Quit with `Ctrl-A` then `X`.
 ssh -i vm_key -p 2222 dev@localhost
 ```
 
-### Set a console password (optional, run inside the VM)
+### Console password (optional)
+
+By default `dev` has no password: the account is locked, so the serial console
+stops at an unusable `login:` prompt and the SSH key is the only way in. To
+enable console login, give `vm.sh` a password by either route:
+
+```bash
+VM_PASSWORD='hunter2' ./vm.sh     # one-off
+echo 'hunter2' > vm_password      # persistent; untracked, first line is used
+```
+
+`vm.sh` then emits `lock_passwd: false` and `plain_text_passwd` into the seed.
+SSH remains key-only regardless (`ssh_pwauth: false`), so this only affects the
+console. The password lands in `seed/user-data` and `seed.iso` in plaintext —
+both are gitignored, but treat them as secrets.
+
+This applies on a VM's *first* boot. On an already-initialised VM, either run
+`sudo cloud-init clean && sudo reboot` inside it to re-apply, or just set the
+password directly (sudo is passwordless):
 
 ```bash
 sudo passwd dev

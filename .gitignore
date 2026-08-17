@@ -13,6 +13,9 @@ seed/
 vm_key
 vm_key.pub
 
+# Console password for the VM user (per-machine secret)
+vm_password
+
 # macOS
 .DS_Store
 
