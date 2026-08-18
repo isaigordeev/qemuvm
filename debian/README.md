@@ -48,14 +48,14 @@ Cloud-init reads this on first boot to create the user and install the SSH key.
 mkdir -p seed
 
 cat > seed/meta-data <<EOF
-instance-id: debian-dev
-local-hostname: debian-dev
+instance-id: isg-debian-ephemeral
+local-hostname: isg-debian-ephemeral
 EOF
 
 cat > seed/user-data <<EOF
 #cloud-config
 users:
-  - name: dev
+  - name: isg
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     ssh_authorized_keys:
@@ -107,31 +107,34 @@ cloud-init runs. Quit with `Ctrl-A` then `X`.
 ### SSH in from a second terminal
 
 ```bash
-ssh -i vm_key -p 2222 dev@localhost
+ssh -i vm_key -p 2222 isg@localhost
 ```
 
-### Console password (optional)
+### Console password
 
-By default `dev` has no password: the account is locked, so the serial console
-stops at an unusable `login:` prompt and the SSH key is the only way in. To
-enable console login, give `vm.sh` a password by either route:
+The machine is `isg-debian-ephemeral`; the user is `isg` with password `isg`.
+That default is committed in `vm.sh` because the VM is a throwaway. Override it
+per-machine, keeping the real value out of git:
 
 ```bash
 VM_PASSWORD='hunter2' ./vm.sh     # one-off
 echo 'hunter2' > vm_password      # persistent; untracked, first line is used
 ```
 
-`vm.sh` then emits `lock_passwd: false` and `plain_text_passwd` into the seed.
-SSH remains key-only regardless (`ssh_pwauth: false`), so this only affects the
-console. The password lands in `seed/user-data` and `seed.iso` in plaintext —
-both are gitignored, but treat them as secrets.
+Set `PASSWORD=""` in `vm.sh` to drop the password entirely: cloud-init then
+locks the account, the console `login:` prompt becomes unusable, and the SSH key
+is the only way in. Whatever you choose, the password unlocks only the console —
+SSH stays key-only (`ssh_pwauth: false`). The value lands in `seed/user-data`
+and `seed.iso` in plaintext; both are gitignored.
 
-This applies on a VM's *first* boot. On an already-initialised VM, either run
-`sudo cloud-init clean && sudo reboot` inside it to re-apply, or just set the
-password directly (sudo is passwordless):
+Cloud-init applies this per *instance*, keyed on the `instance-id` in
+`meta-data` — which `vm.sh` derives from `HOSTNAME`. So renaming the machine
+also re-runs user creation on the next boot of an existing disk. Otherwise, to
+re-apply without a rename, either run `sudo cloud-init clean && sudo reboot`
+inside the VM, or set the password directly (sudo is passwordless):
 
 ```bash
-sudo passwd dev
+sudo passwd isg
 ```
 
 ### Install dev tools (inside the VM)
@@ -179,7 +182,7 @@ Then:
 
 ```bash
 ./start-daemon.sh                                          # start in background
-ssh -i vm_key -p 2222 dev@localhost                        # main interface
+ssh -i vm_key -p 2222 isg@localhost                        # main interface
 socat -,raw,echo=0 UNIX-CONNECT:/tmp/vm-console.sock       # attach serial console
 socat - UNIX-CONNECT:/tmp/vm-monitor.sock                  # attach QEMU monitor
 kill $(cat /tmp/vm.pid)                                    # stop
@@ -219,6 +222,7 @@ qemu-img snapshot -d clean debian.qcow2    # delete
 | `edk2-aarch64-code.fd` | Read-only UEFI firmware |
 | `seed.iso` | Cloud-init config for first boot |
 | `seed/` | Source for `seed.iso` (user-data, meta-data) |
-| `vm_key` / `vm_key.pub` | SSH keypair for the `dev` user |
+| `vm_key` / `vm_key.pub` | SSH keypair for the `isg` user |
+| `vm_password` | Optional console-password override (untracked) |
 | `start.sh` | Foreground launcher |
 | `start-daemon.sh` | Background launcher (optional) |

@@ -3,8 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # --- first-boot config (edit me) ---
-HOSTNAME="debian-dev"
-USERNAME="dev"
+HOSTNAME="isg-debian-ephemeral"
+USERNAME="isg"
+PASSWORD="isg"          # console password; "" locks the account (SSH key only)
 DISK_SIZE="20G"
 MEMORY="4G"
 CPUS=4
@@ -24,12 +25,13 @@ SEED_DIR="seed"
 SEED_ISO="seed.iso"
 PASSWORD_FILE="vm_password"
 
-# Optional console password for $USERNAME, so the serial console is usable and
-# not just SSH. Taken from $VM_PASSWORD, else the first line of ./vm_password
-# (both untracked). Empty means no password: the account stays locked and the
-# SSH key is the only way in. SSH stays key-only either way (ssh_pwauth: false).
-PASSWORD="${VM_PASSWORD:-}"
-if [ -z "$PASSWORD" ] && [ -f "$PASSWORD_FILE" ]; then
+# The console password above is committed because this VM is a throwaway. To
+# keep a real one off disk, override it per-machine with $VM_PASSWORD or the
+# first line of ./vm_password (both untracked). Either way the password only
+# unlocks the serial console; SSH stays key-only (ssh_pwauth: false).
+if [ -n "${VM_PASSWORD:-}" ]; then
+  PASSWORD="$VM_PASSWORD"
+elif [ -f "$PASSWORD_FILE" ]; then
   PASSWORD="$(head -n 1 "$PASSWORD_FILE")"
 fi
 
